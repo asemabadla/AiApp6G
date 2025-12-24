@@ -1,7 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { AppStatus } from '../types';
 import { aiService } from '../services/geminiService';
+import JSZip from 'jszip';
 
 const AppBuilder: React.FC = () => {
   const [status, setStatus] = useState<AppStatus>(AppStatus.IDLE);
@@ -13,14 +13,12 @@ const AppBuilder: React.FC = () => {
     if (!prompt) return;
     setStatus(AppStatus.ANALYZING);
     setProgress(10);
-    
+
     try {
-      // Step 1: Analysis
       const analysis = await aiService.analyzeAppRequest(prompt);
       setAppData(analysis);
       setProgress(30);
-      
-      // Simulating Agent workflows
+
       setTimeout(() => {
         setStatus(AppStatus.DESIGNING);
         setProgress(55);
@@ -56,24 +54,46 @@ const AppBuilder: React.FC = () => {
     setStatus(AppStatus.READY);
   };
 
-  const downloadApp = () => {
-    const blob = new Blob([JSON.stringify(appData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
+  const downloadApp = async () => {
+    const zip = new JSZip();
+    zip.file("app.json", JSON.stringify(appData, null, 2));
+    const content = await zip.generateAsync({ type: "blob" });
+
+    const url = URL.createObjectURL(content);
     const a = document.createElement('a');
     a.href = url;
     a.download = 'my-awesome-app.zip';
     a.click();
-    
-    // Purge logic
+
     setTimeout(() => {
       alert("تم تحميل التطبيق بنجاح. لقد تم الآن حذف جميع بيانات التطبيق من خوادمنا لضمان خصوصيتك.");
       window.location.href = '/';
     }, 1000);
   };
 
+  useEffect(() => {
+    if (status === AppStatus.PAYMENT && (window as any).paypal) {
+      (window as any).paypal.Buttons({
+        createOrder: (data: any, actions: any) => {
+          return actions.order.create({
+            purchase_units: [{
+              amount: { value: "20.00" }
+            }]
+          });
+        },
+        onApprove: async (data: any, actions: any) => {
+          await actions.order.capture();
+          confirmPayment();
+        }
+      }).render('#paypal-button-container');
+    }
+  }, [status]);
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-12">
       <div className="bg-gray-800/50 rounded-3xl p-8 border border-white/5 shadow-2xl">
+
+        {/* شاشة البداية */}
         {status === AppStatus.IDLE && (
           <div className="text-center">
             <h2 className="text-3xl font-bold mb-6">ما هو التطبيق الذي تحلم به؟</h2>
@@ -92,6 +112,7 @@ const AppBuilder: React.FC = () => {
           </div>
         )}
 
+        {/* مراحل التحليل والبناء */}
         {(status === AppStatus.ANALYZING || status === AppStatus.DESIGNING || status === AppStatus.CODING || status === AppStatus.TESTING) && (
           <div className="text-center py-12">
             <div className="mb-8 relative inline-block">
@@ -115,12 +136,29 @@ const AppBuilder: React.FC = () => {
           </div>
         )}
 
+        {/* شاشة المعاينة */}
         {status === AppStatus.PREVIEW && (
           <div>
             <div className="flex items-center justify-between mb-8">
               <h2 className="text-3xl font-bold">معاينة التطبيق</h2>
               <div className="text-green-400 font-bold bg-green-400/10 px-4 py-1 rounded-full text-sm">جاهز للمعاينة</div>
             </div>
+
+            {/* التطبيق المبني */}
+            <div className="bg-gray-900 rounded-2xl p-6 border border-white/5 mb-8">
+              <h3 className="font-bold mb-4 text-indigo-400">التطبيق المبني:</h3>
+              {appData?.code ? (
+                <iframe
+                  title="App Preview"
+                  className="w-full h-96 rounded-lg border border-gray-700 bg-white"
+                  srcDoc={appData.code}
+                />
+              ) : (
+                <div className="text-gray-400">لم يتم توليد كود للتطبيق بعد</div>
+              )}
+            </div>
+
+            {/* المميزات والتقنيات */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
               <div className="bg-gray-900 rounded-2xl p-6 border border-white/5">
                 <h3 className="font-bold mb-4 text-indigo-400">المميزات الرئيسية:</h3>
@@ -139,6 +177,8 @@ const AppBuilder: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            {/* السعر والأزرار */}
             <div className="p-8 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl text-center">
               <p className="text-lg mb-4 text-indigo-200">سعر الحصول على التطبيق كاملاً هو</p>
               <div className="text-5xl font-black text-white mb-6">$20</div>
@@ -160,36 +200,24 @@ const AppBuilder: React.FC = () => {
           </div>
         )}
 
+                {/* الدفع عبر PayPal */}
         {status === AppStatus.PAYMENT && (
           <div className="text-center max-w-md mx-auto py-8">
             <h2 className="text-3xl font-bold mb-6">إتمام عملية الدفع</h2>
-            <div className="bg-gray-900 p-8 rounded-3xl border border-white/10 mb-8">
-              <div className="mb-6">
-                <label className="block text-right mb-2 text-sm text-gray-400">رقم البطاقة</label>
-                <input type="text" className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3" placeholder="**** **** **** ****" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-right mb-2 text-sm text-gray-400">التاريخ</label>
-                  <input type="text" className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3" placeholder="MM/YY" />
-                </div>
-                <div>
-                  <label className="block text-right mb-2 text-sm text-gray-400">CVC</label>
-                  <input type="password" className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3" placeholder="***" />
-                </div>
-              </div>
-            </div>
-            <button onClick={confirmPayment} className="w-full py-4 ai-gradient rounded-xl font-bold text-xl shadow-lg">تأكيد الدفع 20$</button>
+            <div id="paypal-button-container"></div>
           </div>
         )}
 
+        {/* بعد الدفع الناجح */}
         {status === AppStatus.READY && (
           <div className="text-center py-12">
             <div className="text-7xl mb-6">🎉</div>
             <h2 className="text-4xl font-bold mb-4">تطبيقك جاهز للإقلاع!</h2>
-            <p className="text-gray-400 mb-10 max-w-md mx-auto">لقد تمت عملية الدفع بنجاح. يمكنك الآن تحميل ملفات التطبيق. يرجى الملاحظة أنه سيتم حذف بياناتك فور الانتهاء.</p>
-            <button 
-              onClick={downloadApp} 
+            <p className="text-gray-400 mb-10 max-w-md mx-auto">
+              لقد تمت عملية الدفع بنجاح. يمكنك الآن تحميل ملفات التطبيق. يرجى الملاحظة أنه سيتم حذف بياناتك فور الانتهاء.
+            </p>
+            <button
+              onClick={downloadApp}
               className="px-12 py-4 bg-green-500 rounded-2xl text-xl font-bold hover:bg-green-600 transition shadow-xl shadow-green-500/20"
             >
               تحميل التطبيق الآن (.zip)
