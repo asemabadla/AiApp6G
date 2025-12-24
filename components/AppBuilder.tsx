@@ -15,29 +15,27 @@ const AppBuilder: React.FC = () => {
     setProgress(10);
 
     try {
+      // تحليل الفكرة
       const analysis = await aiService.analyzeAppRequest(prompt);
       setAppData(analysis);
       setProgress(30);
 
-      setTimeout(() => {
-        setStatus(AppStatus.DESIGNING);
-        setProgress(55);
-      }, 2000);
+      // توليد الكود مباشرة بعد التحليل
+      setStatus(AppStatus.CODING);
+      const code = await aiService.generateAppCode(analysis.techStack, analysis.features);
+      setAppData((prev: any) => ({ ...prev, code }));
+      setProgress(80);
 
-      setTimeout(() => {
-        setStatus(AppStatus.CODING);
-        setProgress(80);
-      }, 4500);
-
+      // الانتقال إلى مرحلة المعاينة
       setTimeout(() => {
         setStatus(AppStatus.TESTING);
         setProgress(95);
-      }, 7000);
+      }, 2000);
 
       setTimeout(() => {
         setStatus(AppStatus.PREVIEW);
         setProgress(100);
-      }, 9000);
+      }, 4000);
 
     } catch (error) {
       console.error(error);
@@ -178,7 +176,7 @@ const AppBuilder: React.FC = () => {
               </div>
             </div>
 
-            {/* السعر والأزرار */}
+                        {/* السعر والأزرار */}
             <div className="p-8 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl text-center">
               <p className="text-lg mb-4 text-indigo-200">سعر الحصول على التطبيق كاملاً هو</p>
               <div className="text-5xl font-black text-white mb-6">$20</div>
@@ -200,7 +198,7 @@ const AppBuilder: React.FC = () => {
           </div>
         )}
 
-                {/* الدفع عبر PayPal */}
+        {/* الدفع عبر PayPal */}
         {status === AppStatus.PAYMENT && (
           <div className="text-center max-w-md mx-auto py-8">
             <h2 className="text-3xl font-bold mb-6">إتمام عملية الدفع</h2>
